@@ -156,12 +156,12 @@ myGgplotScat = function(dt.arg,
       geom_abline(slope = band.arg$a, intercept = band.arg$b) +
       geom_abline(
         slope = band.arg$a,
-        intercept = band.arg$b * (1 + band.arg$width),
+        intercept =  band.arg$b + abs(band.arg$b)*band.arg$width,
         linetype = 'dashed'
       ) +
       geom_abline(
         slope = band.arg$a,
-        intercept = band.arg$b * (1 - band.arg$width),
+        intercept = band.arg$b - abs(band.arg$b)*band.arg$width,
         linetype = 'dashed'
       )
   }
@@ -324,12 +324,12 @@ userDataGen <- function() {
     Metadata_Site = rep(1:locNsites, each = locNtp * locNtracks),
     Metadata_Well = rep(1:locNwells, each = locNtp * locNsites * locNtracks / locNwells),
     Metadata_Time = rep(1:locNtp, locNsites * locNtracks),
-    objCyto_Intensity_MeanIntensity_imErkCor = rnorm(locNtp * locNtracks * locNsites, .5, 0.1),
-    objNuc_Intensity_MeanIntensity_imErkCor  = rnorm(locNtp * locNtracks * locNsites, .5, 0.1),
+    objCyto_Intensity_MeanIntensity_imErkCor = rnorm(locNtp * locNtracks * locNsites, 1, 0.5),
+    objNuc_Intensity_MeanIntensity_imErkCor  = rnorm(locNtp * locNtracks * locNsites, .5, 0.2),
     TrackLabel = rep(1:(locNtracks * locNsites), each = locNtp)
   )
   
-  loc.dt[, meas_MeanIntensity_nuc_imNucCorrBg := objNuc_Intensity_MeanIntensity_imErkCor + objCyto_Intensity_MeanIntensity_imErkCor]
+  loc.dt[, meas_MeanIntensity_nuc_imNucCorrBg := objNuc_Intensity_MeanIntensity_imErkCor + rnorm(locNtp * locNtracks * locNsites, 0, 0.1)]
   
   return(loc.dt)
 }

@@ -185,15 +185,14 @@ server <- shinyServer(function(input, output, session) {
   counter <- reactiveValues(
     # The value of inDataGen1,2 actionButton is the number of times they were pressed
     dataGen1     = isolate(input$inDataGen1),
-    dataLoadNuc  = isolate(input$inButLoadNuc),
-    dataLoadStim = isolate(input$inButLoadStim)
-    
+    dataLoadNuc  = isolate(input$inButLoadNuc)
+    #dataLoadStim = isolate(input$inButLoadStim)
   )
   
   # This button will reset the inFileLoad
   observeEvent(input$inButReset, {
     reset("inFileLoadNuc")  # reset is a shinyjs function
-    reset("inButLoadStim")  # reset is a shinyjs function
+    #reset("inButLoadStim")  # reset is a shinyjs function
   })
   
   # generate random dataset 1
@@ -236,7 +235,7 @@ server <- shinyServer(function(input, output, session) {
     
     locInGen1 = input$inDataGen1
     locInLoadNuc = input$inButLoadNuc
-    locInLoadStim = input$inButLoadStim
+    #locInLoadStim = input$inButLoadStim
     
     cat(
       "dataInBoth\ninGen1: ",
@@ -247,10 +246,10 @@ server <- shinyServer(function(input, output, session) {
       locInLoadNuc,
       "   prev=",
       isolate(counter$dataLoadNuc),
-      "\ninDataStim: ",
-      locInLoadStim,
-      "   prev=",
-      isolate(counter$dataLoadStim),
+#      "\ninDataStim: ",
+#      locInLoadStim,
+#      "   prev=",
+#      isolate(counter$dataLoadStim),
       "\n"
     )
     
@@ -388,8 +387,8 @@ server <- shinyServer(function(input, output, session) {
     loc.fit = dataFit()
     
     # add Boolean column: TRUE if a point iles within selection band obtained from fitting
-    loc.dt[, mid.in := ifelse(y > loc.fit$coeff.a * x + loc.fit$coeff.b * (1 - input$inBandWidth) &
-                                y < loc.fit$coeff.a * x + loc.fit$coeff.b * (1 + input$inBandWidth), TRUE, FALSE)]
+    loc.dt[, mid.in := ifelse(y > loc.fit$coeff.a * x + loc.fit$coeff.b - abs(loc.fit$coeff.b) * input$inBandWidth &
+                                y < loc.fit$coeff.a * x + loc.fit$coeff.b + abs(loc.fit$coeff.b) * input$inBandWidth, TRUE, FALSE)]
     
     # calculate number of time points and the number of time points within the band per track id 
     loc.dt.n = loc.dt[, .(n.tpoints = .N, n.tpoints.in = sum(mid.in)), by = id]
