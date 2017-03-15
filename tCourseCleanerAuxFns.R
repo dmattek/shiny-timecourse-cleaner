@@ -139,7 +139,7 @@ myGgplotScat = function(dt.arg,
     p.tmp = p.tmp +
       geom_point(aes(colour = as.factor(get(group.col.arg)), group = id), alpha = alpha.arg) +
       geom_path(aes(colour = as.factor(get(group.col.arg)), group = id), alpha = alpha.arg) +
-      scale_color_manual(name = "", values = rhg_cols[c(7, 3)])
+      scale_color_manual(name = group.col.arg, values =c("FALSE" = rhg_cols[7], "TRUE" = rhg_cols[3]))
   }
   
   if (is.null(band.arg))
@@ -236,12 +236,14 @@ myGgplotTraj = function(dt.arg,
   if (is.null(line.col.arg))
     p.tmp = p.tmp + 
       geom_line(alpha = 0.25, size = 0.25)
-  else
+  else {
     p.tmp = p.tmp + 
       geom_line(aes_string(colour = line.col.arg),
-                              alpha = 0.5,
-                              size = 0.5) +
-      scale_color_manual(name = line.col.arg, values = rhg_cols[c(7, 3)])
+                alpha = 0.5,
+                size = 0.5) +
+      scale_color_manual(name = line.col.arg, values =c("FALSE" = rhg_cols[7], "TRUE" = rhg_cols[3]))
+    
+  }
   
   
   p.tmp = p.tmp +
@@ -323,7 +325,7 @@ userDataGen <- function() {
   loc.dt = data.table(
     Metadata_Site = rep(1:locNsites, each = locNtp * locNtracks),
     Metadata_Well = rep(1:locNwells, each = locNtp * locNsites * locNtracks / locNwells),
-    Metadata_Time = rep(1:locNtp, locNsites * locNtracks),
+    RealTime = rep(1:locNtp, locNsites * locNtracks),
     objCyto_Intensity_MeanIntensity_imErkCor = rnorm(locNtp * locNtracks * locNsites, 1, 0.5),
     objNuc_Intensity_MeanIntensity_imErkCor  = rnorm(locNtp * locNtracks * locNsites, .5, 0.2),
     TrackLabel = rep(1:(locNtracks * locNsites), each = locNtp)

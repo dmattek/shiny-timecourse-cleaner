@@ -369,7 +369,7 @@ server <- shinyServer(function(input, output, session) {
     loc.tracks = dataSelTracksIn()
     
     # Assign logical variable whether the cell is within te band
-    loc.dt[, mid.in := ifelse(id %in% loc.tracks, 1, 0)]
+    loc.dt[, mid.in := ifelse(id %in% loc.tracks, TRUE, FALSE)]
     
     return(loc.dt)
   })
@@ -386,7 +386,7 @@ server <- shinyServer(function(input, output, session) {
     
     loc.fit = dataFit()
     
-    # add Boolean column: TRUE if a point iles within selection band obtained from fitting
+    # add Boolean column: TRUE if a point lies within selection band obtained from fitting
     loc.dt[, mid.in := ifelse(y > loc.fit$coeff.a * x + loc.fit$coeff.b - abs(loc.fit$coeff.b) * input$inBandWidth &
                                 y < loc.fit$coeff.a * x + loc.fit$coeff.b + abs(loc.fit$coeff.b) * input$inBandWidth, TRUE, FALSE)]
     
@@ -433,8 +433,10 @@ server <- shinyServer(function(input, output, session) {
       realtime = eval(parse(text = loc.s.rt))
     )]
     
+    
     # add a column that indicates whether entire track is in or out of the selection band
-    loc.out[, mid.in := ifelse(id %in% dataSelTracksIn(), TRUE, FALSE)]
+    loc.tracks = dataSelTracksIn()
+    loc.out[, mid.in := ifelse(id %in% loc.tracks, TRUE, FALSE)]
     
     # remove rows with NA
     return(loc.out[complete.cases(loc.out)])
@@ -490,7 +492,7 @@ server <- shinyServer(function(input, output, session) {
     locCols = getDataNucCols()
     
     if (!is.null(locCols)) {
-      locColSel = locCols[locCols %like% 'ime'][1] # index 1 at the end in case more matches; select 1st
+      locColSel = locCols[locCols %like% 'RealTime'][1] # index 1 at the end in case more matches; select 1st
       # cat(locColSel, '\n')
       selectInput(
         'inSelTime',
@@ -566,7 +568,7 @@ server <- shinyServer(function(input, output, session) {
     locCols = getDataNucCols()
     
     if (!is.null(locCols)) {
-      locColSel = locCols[locCols %like% 'objCyto_Intensity_MeanIntensity_imErkCor.*'][1] # index 1 at the end in case more matches; select 1st
+      locColSel = locCols[locCols %like% 'objCell_Intensity_MeanIntensity_imErkCor.*'][1] # index 1 at the end in case more matches; select 1st
       #    cat(locColSel, '\n')
       selectInput(
         'inSelMeas21',
