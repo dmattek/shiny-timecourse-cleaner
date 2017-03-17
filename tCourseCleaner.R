@@ -47,6 +47,8 @@ require(Hmisc)
 options(shiny.maxRequestSize=30*1024^2)
 source('tCourseCleanerAuxFns.R')
 
+###### UI.R
+
 ui <- shinyUI(fluidPage(useShinyjs(), # Include shinyjs
                         
                         # Application title
@@ -81,6 +83,8 @@ ui <- shinyUI(fluidPage(useShinyjs(), # Include shinyjs
                             tags$hr(),
                             checkboxInput('inRobustFit', 'Robust Linear Regression', value = TRUE, width = '100px'),
                             numericInput('inBandWidth', 'Width of selection band', min = 0, step = 0.1, value = 1, width = '100px'),
+                            textOutput('outTextCellRatio'),
+                            tags$hr(),
                             downloadButton('downloadDataClean', 'Download cleaned data'),
                             downloadButton('downloadDataMarked', 'Download original data with mid.in column')
                             
@@ -178,6 +182,8 @@ ui <- shinyUI(fluidPage(useShinyjs(), # Include shinyjs
                         )
                         
 ))
+
+###### SERVER
 
 server <- shinyServer(function(input, output, session) {
   # This is only set at session start
@@ -443,8 +449,9 @@ server <- shinyServer(function(input, output, session) {
     return(loc.out[complete.cases(loc.out)])
   })
   
-  
+  # return dt WITHOUT tracks that aren't within selection band
   data4saveClean <- reactive({
+    cat(file = stderr(), 'data4saveClean\n')
     loc.dt = dataMod()
     if(is.null(loc.dt))
       return(NULL)
@@ -454,15 +461,37 @@ server <- shinyServer(function(input, output, session) {
     return(loc.dt[, names(loc.dt)[!(names(loc.dt) %in% 'trackObjectsLabelUni')], with = FALSE])
   })
   
+  # return original dataset with and additional column
+  # signifying whether a track is within selection band
   data4saveMarked <- reactive({
+    cat(file = stderr(), 'data4saveMarked\n')
     loc.dt = dataMod()
     if(is.null(loc.dt))
       return(NULL)
     
     loc.tracks = dataSelTracksIn()
-    loc.dt[, mid.in := ifelse(id %in% loc.tracks, TRUE, FALSE)]
+    if(is.null(loc.tracks))
+      return(NULL)
+    
+    loc.dt[, mid.in := ifelse(trackObjectsLabelUni %in% loc.tracks, TRUE, FALSE)]
     
     return(loc.dt[complete.cases(loc.dt)])
+  })
+  
+  
+  # calculate fraction of tracks within selection band
+  dataCalcMidInFrac <- reactive({
+    cat(file=stderr(), 'dataCalcMidInFrac\n')
+    
+    loc.tracks = dataSelTracksIn()
+    loc.dt = data4Fit()
+    if(is.null(loc.dt) || is.null(loc.tracks))
+      return(NULL)
+    
+    loc.l = list()
+    loc.l$nTracksTot = length(unique(loc.dt$id))
+    loc.l$nTracksMid = length(loc.tracks)
+    return(loc.l)
   })
   
   output$varSelSite = renderUI({
@@ -516,6 +545,7 @@ server <- shinyServer(function(input, output, session) {
     }
   })
   
+
   # This is main field to select plot facet grouping
   # It's typically a column with the entire experimental description,
   # e.g. in Yannick's case it's Stim_All_Ch or Stim_All_S.
@@ -657,6 +687,20 @@ server <- shinyServer(function(input, output, session) {
     plotlyOutput("plotTraj", width = paste0(input$inPlotTrajWidth, '%'), height = paste0(input$inPlotTrajHeight, 'px'))
   })
   
+  output$outTextCellRatio = renderText({
+    cat(file = stderr(), 'outTextCellRatio\n')
+    
+    locBut = input$butGoScatter
+    if (locBut == 0) {
+      cat(file=stderr(), 'outTextCellRatio: Go button not pressed\n')
+      
+      return(NULL)
+    }
+    
+    loc.res = dataCalcMidInFrac()
+
+    paste0('Selected: ', loc.res$nTracksMid, '/', loc.res$nTracksTot, ' tracks')
+  })
   
   output$plotScatter <- renderPlotly({
     cat(file=stderr(), "plotScatter\n")
