@@ -81,7 +81,8 @@ ui <- shinyUI(fluidPage(useShinyjs(), # Include shinyjs
                             tags$hr(),
                             checkboxInput('inRobustFit', 'Robust Linear Regression', value = TRUE, width = '100px'),
                             numericInput('inBandWidth', 'Width of selection band', min = 0, step = 0.1, value = 1, width = '100px'),
-                            downloadButton('downloadData', 'Download cleaned data')
+                            downloadButton('downloadDataClean', 'Download cleaned data'),
+                            downloadButton('downloadDataMarked', 'Download original data with mid.in column')
                             
                           ),
                           
@@ -443,7 +444,7 @@ server <- shinyServer(function(input, output, session) {
   })
   
   
-  data4save <- reactive({
+  data4saveClean <- reactive({
     loc.dt = dataMod()
     if(is.null(loc.dt))
       return(NULL)
@@ -451,6 +452,17 @@ server <- shinyServer(function(input, output, session) {
     loc.dt = loc.dt[trackObjectsLabelUni %in% dataSelTracksIn()]
     
     return(loc.dt[, names(loc.dt)[!(names(loc.dt) %in% 'trackObjectsLabelUni')], with = FALSE])
+  })
+  
+  data4saveMarked <- reactive({
+    loc.dt = dataMod()
+    if(is.null(loc.dt))
+      return(NULL)
+    
+    loc.tracks = dataSelTracksIn()
+    loc.dt[, mid.in := ifelse(id %in% loc.tracks, TRUE, FALSE)]
+    
+    return(loc.dt[complete.cases(loc.dt)])
   })
   
   output$varSelSite = renderUI({
@@ -744,10 +756,17 @@ server <- shinyServer(function(input, output, session) {
     return(p.out.ly)
   })
   
-  output$downloadData <- downloadHandler(
+  output$downloadDataClean <- downloadHandler(
     filename = 'tCoursesSelected_clean.csv',
     content = function(file) {
-      write.csv(data4save(), file, row.names = FALSE)
+      write.csv(data4saveClean(), file, row.names = FALSE)
+    }
+  )
+
+  output$downloadDataMarked <- downloadHandler(
+    filename = 'tCoursesSelected_midin.csv',
+    content = function(file) {
+      write.csv(data4saveMarked(), file, row.names = FALSE)
     }
   )
   
