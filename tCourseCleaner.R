@@ -474,8 +474,7 @@ server <- shinyServer(function(input, output, session) {
       return(NULL)
     
     loc.dt[, mid.in := ifelse(trackObjectsLabelUni %in% loc.tracks, TRUE, FALSE)]
-    
-    return(loc.dt[complete.cases(loc.dt)])
+    return(loc.dt)
   })
   
   
