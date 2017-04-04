@@ -139,7 +139,7 @@ myGgplotScat = function(dt.arg,
     p.tmp = p.tmp +
       geom_point(aes(colour = as.factor(get(group.col.arg)), group = id), alpha = alpha.arg) +
       geom_path(aes(colour = as.factor(get(group.col.arg)), group = id), alpha = alpha.arg) +
-      scale_color_manual(name = group.col.arg, values =c("FALSE" = rhg_cols[7], "TRUE" = rhg_cols[3]))
+      scale_color_manual(name = group.col.arg, values =c("FALSE" = rhg_cols[7], "TRUE" = rhg_cols[3], "SELECTED" = 'green'))
   }
   
   if (is.null(band.arg))
@@ -241,7 +241,7 @@ myGgplotTraj = function(dt.arg,
       geom_line(aes_string(colour = line.col.arg),
                 alpha = 0.5,
                 size = 0.5) +
-      scale_color_manual(name = line.col.arg, values =c("FALSE" = rhg_cols[7], "TRUE" = rhg_cols[3]))
+      scale_color_manual(name = line.col.arg, values =c("FALSE" = rhg_cols[7], "TRUE" = rhg_cols[3], "SELECTED" = 'green'))
     
   }
   
@@ -328,6 +328,7 @@ userDataGen <- function() {
     RealTime = rep(1:locNtp, locNsites * locNtracks),
     objCyto_Intensity_MeanIntensity_imErkCor = rnorm(locNtp * locNtracks * locNsites, 1, 0.5),
     objNuc_Intensity_MeanIntensity_imErkCor  = rnorm(locNtp * locNtracks * locNsites, .5, 0.2),
+    objCell_Intensity_MeanIntensity_imErkCor = rnorm(locNtp * locNtracks * locNsites, 1.5, 0.25),
     TrackLabel = rep(1:(locNtracks * locNsites), each = locNtp)
   )
   

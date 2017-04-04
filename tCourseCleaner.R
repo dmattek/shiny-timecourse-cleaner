@@ -80,6 +80,8 @@ ui <- shinyUI(fluidPage(useShinyjs(), # Include shinyjs
                             uiOutput('varSelSite'),
                             uiOutput('varSelTrackLabel'),
                             uiOutput('varSelTime'),
+                            checkboxInput('chBhighlightTraj', 'Highlight trajectories?', FALSE),
+                            uiOutput('varSelHighlight'),
                             tags$hr(),
                             checkboxInput('inRobustFit', 'Robust Linear Regression', value = TRUE, width = '100px'),
                             numericInput('inBandWidth', 'Width of selection band', min = 0, step = 0.1, value = 1, width = '100px'),
@@ -133,11 +135,11 @@ ui <- shinyUI(fluidPage(useShinyjs(), # Include shinyjs
                                        h4("Plot format"),
                                        fluidRow(
                                          column(4,
-                                                numericInput('inPlotScatterHeight', 'Height [px]:', value = 1000, min = 100, width = '100px', step = 50)),
+                                                numericInput('inPlotScatterHeight', 'Height [px]:', value = 1000, min = 100, width = '100px', step = 50),
+                                                actionButton('butGoScatter', 'Plot!')),
                                          column(4,
                                                 numericInput('inPlotScatterWidth', 'Width [%]:', value = 100, min = 10, max = 100, width = '100px', step = 10))
                                        ),
-                                       actionButton('butGoScatter', 'Plot!'),
                                        
                                        br(),
                                        uiOutput('uiPlotScatter')
@@ -186,6 +188,14 @@ ui <- shinyUI(fluidPage(useShinyjs(), # Include shinyjs
 ###### SERVER
 
 server <- shinyServer(function(input, output, session) {
+  
+  # this is to delay renderUI display
+  # from: http://stackoverflow.com/questions/20490619/delayed-execution-in-r-shiny-app
+  values <- reactiveValues(starting = TRUE)
+  session$onFlushed(function() {
+    values$starting <- FALSE
+  })
+  
   # This is only set at session start
   # we use this as a way to determine which input was
   # clicked in the dataInBoth reactive
@@ -305,6 +315,18 @@ server <- shinyServer(function(input, output, session) {
     return(loc.dt)
   })
   
+  # return all unique track object labels (created in dataMod)
+  getDataTrackObjLabUni <- reactive({
+    cat(file = stderr(), 'getDataTrackObjLabUni\n')
+    loc.dt = dataMod()
+    
+    if (is.null(loc.dt))
+      return(NULL)
+    else
+      return(unique(loc.dt$trackObjectsLabelUni))
+  })
+  
+  
   # prepare dt for fitting
   # returns dt with x, y, and id columns
   # x & y selected based on input
@@ -373,11 +395,17 @@ server <- shinyServer(function(input, output, session) {
     if(is.null(loc.dt))
       return(NULL)
     
-    loc.tracks = dataSelTracksIn()
-    
     # Assign logical variable whether the cell is within te band
+    loc.tracks = dataSelTracksIn()
     loc.dt[, mid.in := ifelse(id %in% loc.tracks, TRUE, FALSE)]
     
+    # Assign tracks selected for highlighting in UI
+    loc.tracks.highlight = input$inSelHighlight
+    locBut = input$chBhighlightTraj
+    if (locBut) {
+      loc.dt[, mid.in := ifelse(id %in% loc.tracks.highlight, 'SELECTED', mid.in)]
+    }
+
     return(loc.dt)
   })
   
@@ -444,6 +472,13 @@ server <- shinyServer(function(input, output, session) {
     # add a column that indicates whether entire track is in or out of the selection band
     loc.tracks = dataSelTracksIn()
     loc.out[, mid.in := ifelse(id %in% loc.tracks, TRUE, FALSE)]
+    
+    # Assign tracks selected for highlighting in UI
+    loc.tracks.highlight = input$inSelHighlight
+    locBut = input$chBhighlightTraj
+    if (locBut) {
+      loc.out[, mid.in := ifelse(id %in% loc.tracks.highlight, 'SELECTED', mid.in)]
+    }
     
     # remove rows with NA
     return(loc.out[complete.cases(loc.out)])
@@ -640,8 +675,27 @@ server <- shinyServer(function(input, output, session) {
     }
   })
   
+  output$varSelHighlight = renderUI({
+    cat(file = stderr(), 'UI varSelHighlight\n')
+
+    locBut = input$chBhighlightTraj
+    if (!locBut)
+      return(NULL)
+    
+    loc.v = getDataTrackObjLabUni()
+    if(!is.null(loc.v)) {
+      selectInput(
+        'inSelHighlight',
+        'Trajectory to highlight:',
+        loc.v,
+        width = '100%',
+        multiple = TRUE
+      )
+    }
+  })
+  
   output$varSelMeas31 = renderUI({
-    cat(file = stderr(), 'UI varSelMeas21\n')
+    cat(file = stderr(), 'UI varSelMeas31\n')
     locCols = getDataNucCols()
     
     if (!is.null(locCols)) {
@@ -659,7 +713,7 @@ server <- shinyServer(function(input, output, session) {
   
   
   output$varSelMeas32 = renderUI({
-    cat(file = stderr(), 'UI varSelMeas22\n')
+    cat(file = stderr(), 'UI varSelMeas32\n')
     locCols = getDataNucCols()
     
     if (!is.null(locCols) &&
