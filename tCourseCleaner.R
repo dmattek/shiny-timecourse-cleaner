@@ -316,6 +316,7 @@ server <- shinyServer(function(input, output, session) {
   })
   
   # return all unique track object labels (created in dataMod)
+  # This will be used to display in UI for trajectory highlighting
   getDataTrackObjLabUni <- reactive({
     cat(file = stderr(), 'getDataTrackObjLabUni\n')
     loc.dt = dataMod()
@@ -400,6 +401,7 @@ server <- shinyServer(function(input, output, session) {
     loc.dt[, mid.in := ifelse(id %in% loc.tracks, TRUE, FALSE)]
     
     # Assign tracks selected for highlighting in UI
+    # Same column, mid.in is used to ad 3rd level - SELECTED
     loc.tracks.highlight = input$inSelHighlight
     locBut = input$chBhighlightTraj
     if (locBut) {
@@ -686,7 +688,7 @@ server <- shinyServer(function(input, output, session) {
     if(!is.null(loc.v)) {
       selectInput(
         'inSelHighlight',
-        'Trajectory to highlight:',
+        'Select one or more rajectories:',
         loc.v,
         width = '100%',
         multiple = TRUE
