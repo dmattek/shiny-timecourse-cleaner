@@ -37,6 +37,7 @@
 library(shiny)
 library(shinyjs) #http://deanattali.com/shinyjs/
 library(plotly)
+library(DT)
 
 require(data.table)
 require(dplyr)
@@ -45,149 +46,9 @@ require(robust)
 require(Hmisc)
 
 options(shiny.maxRequestSize=30*1024^2)
-source('tCourseCleanerAuxFns.R')
-
-###### UI.R
-
-ui <- shinyUI(fluidPage(useShinyjs(), # Include shinyjs
-                        
-                        # Application title
-                        titlePanel = "Timecourse Inspector",
-                        
-                        sidebarLayout(
-                          
-                          sidebarPanel(
-                            h4("Load data files"),
-                            
-                            fileInput(
-                              'inFileLoadNuc',
-                              'Select file (e.g. tCoursesSelected.csv) and press "Load Data"',
-                              accept = c('text/csv', 'text/comma-separated-values,text/plain')
-                            ),
-                            actionButton("inButLoadNuc",  'Load Data'),
-                            
-                            # fileInput(
-                            #   'inFileLoadStim',
-                            #   'Select Stimulation File (e.g. stimT.csv)',
-                            #   accept = c('text/csv', 'text/comma-separated-values,text/plain')
-                            # ),
-                            # actionButton("inButLoadStim", 'Load Stimulation'),
-                            
-                            actionButton('inDataGen1', 'Generate artificial dataset'),
-                            actionButton("inButReset", "Reset file input"),
-                            br(),
-                            tags$hr(),
-                            uiOutput('varSelSite'),
-                            uiOutput('varSelTrackLabel'),
-                            uiOutput('varSelTime'),
-                            checkboxInput('chBhighlightTraj', 'Highlight trajectories?', FALSE),
-                            uiOutput('varSelHighlight'),
-                            tags$hr(),
-                            checkboxInput('inRobustFit', 'Robust Linear Regression', value = TRUE, width = '100px'),
-                            numericInput('inBandWidth', 'Width of selection band', min = 0, step = 0.1, value = 1, width = '100px'),
-                            textOutput('outTextCellRatio'),
-                            tags$hr(),
-                            downloadButton('downloadDataClean', 'Download cleaned data'),
-                            downloadButton('downloadDataMarked', 'Download original data with mid.in column')
-                            
-                          ),
-                          
-                          mainPanel(
-                            tabsetPanel(
-                              tabPanel("Scatter plot", 
-                                       br(),
-                                       fluidRow(
-                                         column(5,
-                                                uiOutput('varSelMeas11'),
-                                                radioButtons(
-                                                  'inSelMath1',
-                                                  'Operation:',
-                                                  c(
-                                                    'None' = '',
-                                                    'Divide' = " / ",
-                                                    'Sum' = " + ",
-                                                    'Multiply' = " * ",
-                                                    'Subtract' = ' - ',
-                                                    '1/x' = "1 / "
-                                                  )
-                                                ),
-                                                uiOutput('varSelMeas12')
-                                         ),
-                                         
-                                         column(5,
-                                                uiOutput('varSelMeas21'),
-                                                radioButtons(
-                                                  'inSelMath2',
-                                                  'Operation:',
-                                                  c(
-                                                    'None' = '',
-                                                    'Divide' = " / ",
-                                                    'Sum' = " + ",
-                                                    'Multiply' = " * ",
-                                                    'Subtract' = ' - ',
-                                                    '1/x' = "1 / "
-                                                  )
-                                                ),
-                                                uiOutput('varSelMeas22')
-                                         )
-                                       ),
-                                       
-                                       h4("Plot format"),
-                                       fluidRow(
-                                         column(4,
-                                                numericInput('inPlotScatterHeight', 'Height [px]:', value = 1000, min = 100, width = '100px', step = 50),
-                                                actionButton('butGoScatter', 'Plot!')),
-                                         column(4,
-                                                numericInput('inPlotScatterWidth', 'Width [%]:', value = 100, min = 10, max = 100, width = '100px', step = 10))
-                                       ),
-                                       
-                                       br(),
-                                       uiOutput('uiPlotScatter')
-                              ), 
-                              tabPanel("Time courses", 
-                                       br(),
-                  
-                                       uiOutput('varSelGroup'),
-                                       br(),
-                                       
-                                       uiOutput('varSelMeas31'),
-                                       radioButtons(
-                                         'inSelMath3',
-                                         'Operation:',
-                                         c(
-                                           'None' = '',
-                                           'Divide' = " / ",
-                                           'Sum' = " + ",
-                                           'Multiply' = " * ",
-                                           'Subtract' = ' - ',
-                                           '1/x' = "1 / "
-                                         )
-                                       ),
-                                       uiOutput('varSelMeas32'),
-                                       
-                                       h4("Plot format"),
-                                       fluidRow(
-                                         column(4,
-                                                numericInput('inPlotTrajFacetNcol', '#Columns:', value = 4, min = 1, width = '100px', step = 1)),
-                                         column(4,
-                                                numericInput('inPlotTrajHeight', 'Height [px]:', value = 600, min = 100, width = '100px', step = 50)),
-                                         column(4,
-                                                numericInput('inPlotTrajWidth', 'Width [%]:', value = 100, min = 10, max = 100, width = '100px', step = 10))
-                                       ),
-                                       actionButton('butGoTraj', 'Plot!'),
-                                       
-                                       br(),
-                                       uiOutput('uiPlotTraj')
-                              )
-                            )
-                          )
-                        )
-                        
-))
 
 ###### SERVER
-
-server <- shinyServer(function(input, output, session) {
+shinyServer(function(input, output, session) {
   
   # this is to delay renderUI display
   # from: http://stackoverflow.com/questions/20490619/delayed-execution-in-r-shiny-app
@@ -328,6 +189,24 @@ server <- shinyServer(function(input, output, session) {
   })
   
   
+  getMeas1Selection = reactive({
+    if(input$inSelMath1 == '')
+      loc.s.x = input$inSelMeas11
+    else if (input$inSelMath1 == '1 / ')
+      loc.s.x = paste0(input$inSelMath1, input$inSelMeas11)
+    else
+      loc.s.x = paste0(input$inSelMeas11, input$inSelMath1, input$inSelMeas12)
+  })
+  
+  getMeas2Selection = reactive({
+    if(input$inSelMath2 == '')
+      loc.s.y = input$inSelMeas21
+    else if (input$inSelMath2 == '1 / ')
+      loc.s.y = paste0(input$inSelMath2, input$inSelMeas21)
+    else
+      loc.s.y = paste0(input$inSelMeas21, input$inSelMath2, input$inSelMeas22)
+  })
+  
   # prepare dt for fitting
   # returns dt with x, y, and id columns
   # x & y selected based on input
@@ -338,19 +217,8 @@ server <- shinyServer(function(input, output, session) {
     if(is.null(loc.dt))
       return(NULL)
     
-    if(input$inSelMath1 == '')
-      loc.s.x = input$inSelMeas11
-    else if (input$inSelMath1 == '1 / ')
-      loc.s.x = paste0(input$inSelMath1, input$inSelMeas11)
-    else
-      loc.s.x = paste0(input$inSelMeas11, input$inSelMath1, input$inSelMeas12)
-    
-    if(input$inSelMath2 == '')
-      loc.s.y = input$inSelMeas21
-    else if (input$inSelMath2 == '1 / ')
-      loc.s.y = paste0(input$inSelMath2, input$inSelMeas21)
-    else
-      loc.s.y = paste0(input$inSelMeas21, input$inSelMath2, input$inSelMeas22)
+    loc.s.x = getMeas1Selection()
+    loc.s.y = getMeas2Selection()
     
     loc.out = loc.dt[, .(
       x = eval(parse(text = loc.s.x)),
@@ -732,9 +600,23 @@ server <- shinyServer(function(input, output, session) {
     }
   })
   
-  output$uiPlotScatter = renderUI({
+  calcStats = reactive({
+    loc.dt = data4scatterPlot()
     
-    plotlyOutput("plotScatter", width = paste0(input$inPlotScatterWidth, '%'), height = paste0(input$inPlotScatterHeight, 'px'))
+    if (is.null(loc.dt))
+      return(NULL)
+
+    loc.dt.aggr = loc.dt[, sapply(.SD, function(x) c(Mean = mean(x), CV = sd(x)/mean(x), Median = median(x), 'rCV (IQR)' = IQR(x)/median(x), 'rCV (MAD)'= mad(x)/median(x))), .SDcols = c('x', 'y')]
+    return(loc.dt.aggr)
+  })
+  
+  output$outTabStats = renderDataTable({
+    loc.dt = calcStats()
+    
+    if (is.null(loc.dt))
+      return(NULL)
+    
+    datatable(loc.dt, filter = 'none') %>% formatRound(1:2, 3)
   })
   
   output$uiPlotTraj = renderUI({
@@ -757,20 +639,14 @@ server <- shinyServer(function(input, output, session) {
     paste0('Selected: ', loc.res$nTracksMid, '/', loc.res$nTracksTot, ' tracks')
   })
   
-  output$plotScatter <- renderPlotly({
+  plotScatter <- function() {
     cat(file=stderr(), "plotScatter\n")
-    locBut = input$butGoScatter
-    
-    if (locBut == 0) {
-      cat(file=stderr(), 'plotScatter: Go button not pressed\n')
-      
-      return(NULL)
-    }
     
     # isolate because calculations & plotting take a while
     # re-plotting done upon button press
     loc.dt = isolate(data4scatterPlot())
     loc.fit = isolate(dataFit())
+    loc.res = isolate(dataCalcMidInFrac())
     
     cat("plotScatter on to plot\n\n")
     if (is.null(loc.dt)) {
@@ -784,21 +660,47 @@ server <- shinyServer(function(input, output, session) {
     ## FIX: r.squared is unavailable for lm  
     
     #     loc.fit.rsq = ifelse(input$inRobustFit, loc.fit$r.squared, )
-    
-    p.out = myGgplotScat(
+
+    p.out = myGgplotScat(xlab.arg = getMeas1Selection(), ylab.arg = getMeas2Selection(),
       dt.arg = loc.dt,
       band.arg = list(a = loc.fit$coeff.a, b = loc.fit$coeff.b, width = input$inBandWidth),
       group.col.arg = 'mid.in',
       plotlab.arg = sprintf(
-        "%s%.2f\n%s%.2f x %.2f",
+        "%s%.2f\n%s%.2f x %.2f\nSelected: %d / %d tracks",
         ifelse(input$inRobustFit, "lmRob, entire dataset R2=", "lm, entire dataset R2="),
         loc.fit$r.squared,
         'bandwidth=',
         input$inBandWidth,
-        loc.fit$coeff.b
+        loc.fit$coeff.b,
+        loc.res$nTracksMid, 
+        loc.res$nTracksTot
       ),
       alpha.arg = 0.5
     )
+    
+    return(p.out)
+  }
+  
+  output$outPlotScatter <- renderPlot({
+    locBut = input$butGoScatter
+    
+    if (locBut == 0) {
+      cat(file=stderr(), 'plotScatter: Go button not pressed\n')
+      return(NULL)
+    }
+    
+    plotScatter()
+  })
+
+  
+  output$outPlotScatterInt = renderPlotly({
+    locBut = input$butGoScatter
+    
+    if (locBut == 0) {
+      cat(file=stderr(), 'plotScatter: Go button not pressed\n')
+      
+      return(NULL)
+    }
     
     # This is required to avoid 
     # "Warning: Error in <Anonymous>: cannot open file 'Rplots.pdf'"
@@ -807,10 +709,22 @@ server <- shinyServer(function(input, output, session) {
     if (names(dev.cur()) != "null device") dev.off()
     pdf(NULL)
     
-    p.out.ly = plotly_build(p.out)
-    return(p.out.ly)
+    return( plotly_build(plotScatter()))
   })
   
+  # download pdf
+  callModule(downPlot, "downPlotScatter", "scatter.pdf", plotScatter, TRUE)
+  
+  # Hierarchical - choose to display regular heatmap.2 or d3heatmap (interactive)
+  output$plotInt_ui <- renderUI({
+    if (input$chBplotScatterInt)
+      plotlyOutput("outPlotScatterInt", height = paste0(input$inPlotScatterHeight, "px"))
+    else
+      plotOutput('outPlotScatter', height = paste0(input$inPlotScatterHeight, "px"))
+  })
+
+  
+    
   output$plotTraj <- renderPlotly({
     
     cat(file=stderr(), 'plotTraj: in\n')
@@ -870,5 +784,3 @@ server <- shinyServer(function(input, output, session) {
   )
   
 })
-
-shinyApp(ui = ui, server = server)
