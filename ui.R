@@ -89,14 +89,15 @@ shinyUI(fluidPage(useShinyjs(), # Include shinyjs
                                        fluidRow(
                                          column(4,
                                                 numericInput('inPlotScatterHeight', 'Height [px]:', value = 1000, min = 100, width = '100px', step = 50),
+                                                sliderInput('sliPlotScatterSkip', 'Plot every n-th point:', min = 1, max = 10, value = 5, step = 1),
                                                 actionButton('butGoScatter', 'Plot!')),
                                          column(4,
-                                                numericInput('inPlotScatterWidth', 'Width [%]:', value = 100, min = 10, max = 100, width = '100px', step = 10))
+                                                numericInput('inPlotScatterWidth', 'Width [%]:', value = 100, min = 10, max = 100, width = '100px', step = 10),
+                                                checkboxInput('chBplotScatterInt', 'Interactive Plot?'))
                                        ),
                                        
                                        br(),
-                                       checkboxInput('chBplotScatterInt', 'Interactive Plot?'),
-                                       uiOutput("plotInt_ui"),
+                                       uiOutput("uiPlotScatter"),
                                        downPlotUI('downPlotScatter', "Download PDF")
                                        
                               ), 
@@ -133,7 +134,9 @@ shinyUI(fluidPage(useShinyjs(), # Include shinyjs
                                        actionButton('butGoTraj', 'Plot!'),
                                        
                                        br(),
-                                       uiOutput('uiPlotTraj')
+                                       checkboxInput('chBplotTrajInt', 'Interactive Plot?'),
+                                       uiOutput('uiPlotTraj'),
+                                       downPlotUI('downPlotTraj', "Download PDF")
                               )
                             )
                           )

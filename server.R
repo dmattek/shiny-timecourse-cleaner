@@ -219,16 +219,19 @@ shinyServer(function(input, output, session) {
     
     loc.s.x = getMeas1Selection()
     loc.s.y = getMeas2Selection()
-    
+
     loc.out = loc.dt[, .(
       x = eval(parse(text = loc.s.x)),
       y = eval(parse(text = loc.s.y)),
+      t = get(input$inSelTime),
       id = trackObjectsLabelUni
     )]
     
     # remove rows with NA
     loc.out = loc.out[complete.cases(loc.out)]
-    
+
+    setkey(loc.out, id, t)
+    print(loc.out)
     return(loc.out)
   })
   
@@ -278,7 +281,6 @@ shinyServer(function(input, output, session) {
 
     return(loc.dt)
   })
-  
   
   # select trajectories within a band around linear regression line
   # returns vector of trackIDs that lie within selection band
@@ -601,27 +603,48 @@ shinyServer(function(input, output, session) {
   })
   
   calcStats = reactive({
+    cat(file = stderr(), 'calcStats\n')
+
     loc.dt = data4scatterPlot()
     
     if (is.null(loc.dt))
       return(NULL)
 
-    loc.dt.aggr = loc.dt[, sapply(.SD, function(x) c(Mean = mean(x), CV = sd(x)/mean(x), Median = median(x), 'rCV (IQR)' = IQR(x)/median(x), 'rCV (MAD)'= mad(x)/median(x))), .SDcols = c('x', 'y')]
+    loc.dt.aggr = as.data.table(loc.dt[, sapply(.SD, function(x) c('N' = .N,
+                                                     'Mean' = mean(x), 
+                                                     'CV' = sd(x)/mean(x), 
+                                                     'Median' = median(x), 
+                                                     'rCV (IQR)' = IQR(x)/median(x), 
+                                                     'rCV (MAD)'= mad(x)/median(x))), .SDcols = c('x', 'y')])
+    loc.dt.aggr[, stat := c('N', 'Mean', 'CV', 'Median', 'rCV (IQR)', 'rCV (MAD)')]
+    
     return(loc.dt.aggr)
   })
   
-  output$outTabStats = renderDataTable({
+  output$outTabStats = DT::renderDataTable(server = FALSE, {
+    cat(file = stderr(), 'outTabStats\n')
     loc.dt = calcStats()
     
     if (is.null(loc.dt))
       return(NULL)
     
-    datatable(loc.dt, filter = 'none') %>% formatRound(1:2, 3)
-  })
-  
-  output$uiPlotTraj = renderUI({
+    #datatable(loc.dt, filter = 'none') %>% formatRound(1:2, 3)
     
-    plotlyOutput("plotTraj", width = paste0(input$inPlotTrajWidth, '%'), height = paste0(input$inPlotTrajHeight, 'px'))
+    datatable(loc.dt, 
+              rownames = FALSE,
+              extensions = 'Buttons', 
+              options = list(
+                dom = 'Bfrtip',
+                buttons = list('copy', 
+                               'print', 
+                               list(extend = 'collection',
+                                    buttons = list(list(extend='csv',
+                                                        filename = 'hitStats'),
+                                                   list(extend='excel',
+                                                        filename = 'hitStats'),
+                                                   list(extend='pdf',
+                                                        filename= 'hitStats')),
+                                    text = 'Download')))) %>% formatRound(1:2, 3)
   })
   
   output$outTextCellRatio = renderText({
@@ -655,6 +678,10 @@ shinyServer(function(input, output, session) {
     }
     
     cat(file=stderr(), 'plotScatter:dt not NULL\n')
+
+    # select every other point for plotting
+    loc.dt = loc.dt[, .SD[seq(1, .N, input$sliPlotScatterSkip)], by = id]
+    
     
     
     ## FIX: r.squared is unavailable for lm  
@@ -714,9 +741,10 @@ shinyServer(function(input, output, session) {
   
   # download pdf
   callModule(downPlot, "downPlotScatter", "scatter.pdf", plotScatter, TRUE)
+  callModule(downPlot, "downPlotTraj", "tcourses.pdf", plotTraj, TRUE)
   
-  # Hierarchical - choose to display regular heatmap.2 or d3heatmap (interactive)
-  output$plotInt_ui <- renderUI({
+  # 
+  output$uiPlotScatter <- renderUI({
     if (input$chBplotScatterInt)
       plotlyOutput("outPlotScatterInt", height = paste0(input$inPlotScatterHeight, "px"))
     else
@@ -725,7 +753,7 @@ shinyServer(function(input, output, session) {
 
   
     
-  output$plotTraj <- renderPlotly({
+  plotTraj <- function() {
     
     cat(file=stderr(), 'plotTraj: in\n')
     locBut = input$butGoTraj
@@ -758,6 +786,7 @@ shinyServer(function(input, output, session) {
       xlab.arg = 'Time (min)'
     )
     
+    return(p.out)
     # This is required to avoid 
     # "Warning: Error in <Anonymous>: cannot open file 'Rplots.pdf'"
     # When running on a server. Based on:
@@ -767,7 +796,45 @@ shinyServer(function(input, output, session) {
     
     p.out.ly = plotly_build(p.out)
     return(p.out.ly)
+  }
+  
+  output$outPlotTraj <- renderPlot({
+    locBut = input$butGoTraj
+    
+    if (locBut == 0) {
+      cat(file=stderr(), 'plotTraj: Go button not pressed\n')
+      return(NULL)
+    }
+    
+    plotTraj()
   })
+  
+  output$outPlotTrajInt <- renderPlotly({
+    locBut = input$butGoTraj
+    
+    if (locBut == 0) {
+      cat(file=stderr(), 'plotTraj: Go button not pressed\n')
+      return(NULL)
+    }
+    
+    # This is required to avoid 
+    # "Warning: Error in <Anonymous>: cannot open file 'Rplots.pdf'"
+    # When running on a server. Based on:
+    # https://github.com/ropensci/plotly/issues/494
+    if (names(dev.cur()) != "null device") dev.off()
+    pdf(NULL)
+    
+    return( plotly_build(plotTraj()))
+    
+  })
+
+  output$uiPlotTraj <- renderUI({
+    if (input$chBplotTrajInt)
+      plotlyOutput("outPlotTrajInt", height = paste0(input$inPlotTrajHeight, "px"))
+    else
+      plotOutput('outPlotTraj', height = paste0(input$inPlotTrajHeight, "px"))
+  })
+  
   
   output$downloadDataClean <- downloadHandler(
     filename = 'tCoursesSelected_clean.csv',
